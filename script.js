@@ -38,14 +38,23 @@ function updateLivePreview() {
 aptName.addEventListener('input', updateLivePreview);
 aptTime.addEventListener('input', updateLivePreview);
 
-// Fetching Patient Records from Serverless API Edge Endpoint
+// Fetching Patient Records from Serverless API Edge Endpoint (Cache-Busted)
 async function fetchPatients() {
     try {
-        const response = await fetch('/api/patients');
+        // We append a timestamp variable (?t=...) so the browser never caches the old empty table
+        const response = await fetch('/api/patients?t=' + new Date().getTime(), {
+            headers: {
+                'Cache-Control': 'no-cache',
+                'Pragma': 'no-cache'
+            }
+        });
+        
         if (response.ok) {
             allPatients = await response.json();
             renderTable(allPatients);
             updateDashboardMetrics(allPatients);
+        } else {
+            console.error("Failed to load patients. Server responded with:", response.status);
         }
     } catch (error) {
         console.error("Database communication failure:", error);
