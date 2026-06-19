@@ -52,11 +52,11 @@ async function fetchPatients() {
     }
 }
 
-// Dynamic Table Renderer
+// Dynamic Table Renderer (Updated with Delete Button)
 function renderTable(data) {
     const tbody = document.getElementById('patient-table-body');
     if (!data.length) {
-        tbody.innerHTML = `<tr><td colspan="4" class="text-center py-8 text-slate-400 font-normal">No corresponding records found inside database.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="5" class="text-center py-8 text-slate-400 font-normal">No corresponding records found inside database.</td></tr>`;
         return;
     }
 
@@ -69,10 +69,40 @@ function renderTable(data) {
             <td class="px-6 py-4 text-slate-600 font-normal">${patient.phone}</td>
             <td class="px-6 py-4 text-slate-500 max-w-xs truncate">${patient.treatment}</td>
             <td class="px-6 py-4 text-right font-bold text-slate-900">$${Number(patient.price).toFixed(2)}</td>
+            <td class="px-6 py-4 text-center">
+                <button onclick="deletePatient(${patient.id})" class="text-red-400 hover:text-red-600 transition-colors p-2 rounded-lg hover:bg-red-50" title="Delete Record">
+                    <i class="fa-solid fa-trash"></i>
+                </button>
+            </td>
         </tr>
     `).join('');
 }
+// Secure Deletion Engine
+async function deletePatient(id) {
+    // 1. Trigger the native browser warning dialog
+    const isConfirmed = confirm("⚠️ Are you sure you want to permanently delete this patient's record? This action cannot be undone.");
+    
+    // 2. If they click "Cancel", stop the function immediately
+    if (!isConfirmed) return; 
 
+    // 3. If confirmed, route the delete command to the Edge API
+    try {
+        const response = await fetch(`/api/patients?id=${id}`, {
+            method: 'DELETE'
+        });
+
+        if (response.ok) {
+            // Silently refresh the dashboard table to reflect the deleted row
+            fetchPatients(); 
+        } else {
+            const data = await response.json().catch(() => null);
+            alert(`Failed to delete record. Error: ${data ? data.error : 'Unknown'}`);
+        }
+    } catch (err) {
+        alert("Critical Network Error: Could not reach the API to delete the record.");
+        console.error(err);
+    }
+}
 // Analytics Calculations
 function updateDashboardMetrics(data) {
     document.getElementById('stat-count').innerText = data.length;
