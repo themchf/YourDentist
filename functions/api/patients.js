@@ -1,13 +1,23 @@
-// GET /api/patients -> Retrieves all historical records down from the database
-export async function onRequestGet(context) {
+// DELETE /api/patients?id=[ID] -> Removes a specific record from the D1 database
+export async function onRequestDelete(context) {
     try {
-        const { env } = context;
-        // Interface directly with linked Cloudflare Serverless D1 SQL Database Instance
-        const { results } = await env.DB.prepare(
-            "SELECT * FROM patients ORDER BY created_at DESC"
-        ).all();
+        const { env, request } = context;
         
-        return new Response(JSON.stringify(results), {
+        // Extract the ID from the URL string
+        const url = new URL(request.url);
+        const id = url.searchParams.get("id");
+
+        if (!id) {
+            return new Response(JSON.stringify({ error: "Missing patient ID" }), { status: 400 });
+        }
+
+        // Execute the deletion query
+        await env.DB.prepare(
+            "DELETE FROM patients WHERE id = ?"
+        ).bind(id).run();
+
+        return new Response(JSON.stringify({ success: true }), {
+            status: 200,
             headers: { "Content-Type": "application/json" }
         });
     } catch (err) {
@@ -17,7 +27,6 @@ export async function onRequestGet(context) {
         });
     }
 }
-
 // POST /api/patients -> Performs payload serialization and saves entries to storage
 export async function onRequestPost(context) {
     try {
