@@ -87,10 +87,16 @@ function filterPatients() {
     renderTable(matches);
 }
 
-// Form Post Handling
+// Form Post Handling with Visible Error Alerts
 async function savePatient(event) {
     event.preventDefault();
     
+    // Change the button text to show it's working
+    const submitBtn = event.target.querySelector('button[type="submit"]');
+    const originalText = submitBtn.innerText;
+    submitBtn.innerText = "Saving...";
+    submitBtn.disabled = true;
+
     const record = {
         name: document.getElementById('log-name').value,
         age: parseInt(document.getElementById('log-age').value),
@@ -106,12 +112,24 @@ async function savePatient(event) {
             body: JSON.stringify(record)
         });
 
+        // Parse the response from Cloudflare
+        const data = await response.json().catch(() => null);
+
         if (response.ok) {
+            alert("Success! Patient saved to database.");
             document.getElementById('patient-form').reset();
-            fetchPatients(); // Re-sync local dashboard view with edge storage state
+            fetchPatients(); // Refresh the table
+        } else {
+            // THIS WILL TELL US WHAT IS BROKEN
+            alert(`Error ${response.status}: ${data ? data.error : 'Unknown API Error'}`);
         }
     } catch (err) {
-        console.error("Failed persisting patient record payload:", err);
+        alert("Critical Network Error: Could not reach the API.");
+        console.error(err);
+    } finally {
+        // Reset the button
+        submitBtn.innerText = originalText;
+        submitBtn.disabled = false;
     }
 }
 
