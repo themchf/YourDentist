@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SaaS Master Admin Control Panel</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body class="bg-slate-900 text-slate-100 font-sans min-h-screen p-6 md:p-12">
+
+    <div class="max-w-6xl mx-auto">
+        <div class="flex flex-col md:flex-row md:items-center md:justify-between border-b border-slate-800 pb-6 mb-8">
+            <div>
+                <h1 class="text-3xl font-extrabold text-white tracking-tight flex items-center gap-3">
+                    <i class="fa-solid fa-screwdriver-wrench text-teal-500"></i> SaaS Admin Panel
+                </h1>
+                <p class="text-slate-400 mt-1">Manage tenants, subscription states, and access keys.</p>
+            </div>
+            <div class="mt-4 md:mt-0">
+                <input type="password" id="admin-secret" placeholder="Enter Admin Secret Key" 
+                       class="bg-slate-800 border border-slate-700 rounded-xl px-4 py-2 text-sm focus:outline-none focus:border-teal-500 w-64"
+                       onchange="loadClients()">
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <div class="bg-slate-800/50 border border-slate-800 rounded-2xl p-6 h-fit">
+                <h2 class="text-xl font-bold text-white mb-4 flex items-center gap-2">
+                    <i class="fa-solid fa-user-plus text-teal-400"></i> Provision New Clinic
+                </h2>
+                <form onsubmit="addClient(event)" class="space-y-4">
+                    <div>
+                        <label class="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1">Clinic Name</label>
+                        <input type="text" id="new-clinic-name" required placeholder="Dr. Smith's Dental" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-2.5 text-white focus:outline-none focus:border-teal-500">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1">Username</label>
+                        <input type="text" id="new-username" required placeholder="drsmith" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-2.5 text-white focus:outline-none focus:border-teal-500">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1">Initial Password</label>
+                        <input type="text" id="new-password" required placeholder="temporarypass123" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-2.5 text-white focus:outline-none focus:border-teal-500">
+                    </div>
+                    <button type="submit" class="w-full bg-teal-600 hover:bg-teal-700 text-white font-bold py-2.5 rounded-xl transition shadow-lg">
+                        Create Account
+                    </button>
+                </form>
+            </div>
+
+            <div class="lg:col-span-2 bg-slate-800/50 border border-slate-800 rounded-2xl p-6">
+                <h2 class="text-xl font-bold text-white mb-4 flex items-center gap-2">
+                    <i class="fa-solid fa-users text-teal-400"></i> Active SaaS Clients
+                </h2>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left border-collapse">
+                        <thead>
+                            <tr class="border-b border-slate-800 text-slate-400 text-xs font-bold uppercase tracking-wider">
+                                <th class="pb-3">Clinic Detail</th>
+                                <th class="pb-3">Status</th>
+                                <th class="pb-3 text-right">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="client-table-body" class="divide-y divide-slate-800/50 text-sm">
+                            <tr>
+                                <td colspan="3" class="py-8 text-center text-slate-500">Enter your Admin Secret Key above to unlock data.</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function getHeaders() {
+            return {
+                'Content-Type': 'application/json',
+                'X-Admin-Secret': document.getElementById('admin-secret').value
+            };
+        }
+
+        async function loadClients() {
+            const res = await fetch('/api/admin', { headers: getHeaders() });
+            if (!res.ok) {
+                document.getElementById('client-table-body').innerHTML = `<tr><td colspan="3" class="py-8 text-center text-red-400">Invalid Admin Secret Key. Access Denied.</td></tr>`;
+                return;
+            }
+            const clients = await res.json();
+            
+            document.getElementById('client-table-body').innerHTML = clients.map(c => `
+                <tr class="hover:bg-slate-800/30 transition">
+                    <td class="py-4">
+                        <div class="font-bold text-white">${c.clinic_name}</div>
+                        <div class="text-xs text-slate-400">User: ${c.username} (ID: ${c.id})</div>
+                    </td>
+                    <td class="py-4">
+                        <span class="px-2.5 py-1 rounded-full text-xs font-bold ${c.status === 'active' ? 'bg-teal-500/10 text-teal-400 border border-teal-500/20' : 'bg-red-500/10 text-red-400 border border-red-500/20'}">
+                            ${c.status.toUpperCase()}
+                        </span>
+                    </td>
+                    <td class="py-4 text-right space-x-2">
+                        <button onclick="toggleStatus(${c.id}, '${c.status}')" class="px-3 py-1.5 rounded-lg text-xs font-semibold transition border ${c.status === 'active' ? 'border-amber-500/30 text-amber-400 hover:bg-amber-500/10' : 'border-teal-500/30 text-teal-400 hover:bg-teal-500/10'}">
+                            ${c.status === 'active' ? 'Suspend' : 'Activate'}
+                        </button>
+                        <button onclick="changePassword(${c.id})" class="px-3 py-1.5 rounded-lg text-xs font-semibold border border-slate-700 text-slate-300 hover:bg-slate-700/50 transition">
+                            <i class="fa-solid fa-key"></i> Pass
+                        </button>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        async function addClient(e) {
+            e.preventDefault();
+            const payload = {
+                clinic_name: document.getElementById('new-clinic-name').value,
+                username: document.getElementById('new-username').value,
+                password: document.getElementById('new-password').value
+            };
+
+            const res = await fetch('/api/admin', {
+                method: 'POST',
+                headers: getHeaders(),
+                body: JSON.stringify(payload)
+            });
+
+            if (res.ok) {
+                alert('Clinic provisioned successfully!');
+                e.target.reset();
+                loadClients();
+            } else {
+                alert('Failed to provision account.');
+            }
+        }
+
+        async function toggleStatus(id, currentStatus) {
+            const nextStatus = currentStatus === 'active' ? 'suspended' : 'active';
+            if(!confirm(`Change account status to ${nextStatus.toUpperCase()}?`)) return;
+
+            const res = await fetch('/api/admin', {
+                method: 'PUT',
+                headers: getHeaders(),
+                body: JSON.stringify({ id, status: nextStatus })
+            });
+
+            if (res.ok) loadClients();
+        }
+
+        async function changePassword(id) {
+            const newPassword = prompt("Enter the brand new password for this customer:");
+            if (!newPassword) return;
+
+            const res = await fetch('/api/admin', {
+                method: 'PUT',
+                headers: getHeaders(),
+                body: JSON.stringify({ id, password: newPassword })
+            });
+
+            if (res.ok) alert('Password updated successfully! They will have to sign in again.');
+        }
+    </script>
+</body>
+</html>
