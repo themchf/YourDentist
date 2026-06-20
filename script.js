@@ -1,3 +1,56 @@
+// Global Session State
+let currentUserId = localStorage.getItem('dentist_user_id') || null;
+
+// Page Load Lifecycle Gate
+window.addEventListener('DOMContentLoaded', () => {
+    if (currentUserId) {
+        // User is already logged in, show dashboard immediately
+        document.getElementById('login-gate').classList.add('hidden');
+        document.getElementById('main-dashboard').classList.remove('hidden');
+        fetchPatients();
+    }
+});
+
+// Authentication Execution Request
+async function handleCustomerLogin(event) {
+    event.preventDefault();
+    const username = document.getElementById('cust-username').value;
+    const password = document.getElementById('cust-password').value;
+
+    try {
+        const response = await fetch('/api/login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username, password })
+        });
+
+        const data = await response.json();
+
+        if (response.ok) {
+            currentUserId = data.userId;
+            localStorage.setItem('dentist_user_id', data.userId);
+            
+            // Show the app dashboard
+            document.getElementById('login-gate').classList.add('hidden');
+            document.getElementById('main-dashboard').classList.remove('hidden');
+            
+            // Fetch this specific dentist's patients
+            fetchPatients();
+        } else {
+            alert(data.error || "Authentication rejected.");
+        }
+    } catch (err) {
+        alert("Unable to reach authentication server.");
+    }
+}
+
+// Security Eviction (Forces logout if account gets suspended mid-session)
+function forceLogout() {
+    localStorage.removeItem('dentist_user_id');
+    currentUserId = null;
+    document.getElementById('main-dashboard').classList.add('hidden');
+    document.getElementById('login-gate').classList.remove('hidden');
+}
 let allPatients = [];
 
 // Dynamic Navigation Tab Engine
