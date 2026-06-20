@@ -1,17 +1,17 @@
-// Global Session State
+// ==========================================
+// 1. SESSION MANAGEMENT & AUTHENTICATION
+// ==========================================
 let currentUserId = localStorage.getItem('dentist_user_id') || null;
 
-// Page Load Lifecycle Gate
 window.addEventListener('DOMContentLoaded', () => {
+    // If they already have an active session, skip the login screen
     if (currentUserId) {
-        // User is already logged in, show dashboard immediately
         document.getElementById('login-gate').classList.add('hidden');
         document.getElementById('main-dashboard').classList.remove('hidden');
         fetchPatients();
     }
 });
 
-// Authentication Execution Request
 async function handleCustomerLogin(event) {
     event.preventDefault();
     const username = document.getElementById('cust-username').value;
@@ -23,239 +23,132 @@ async function handleCustomerLogin(event) {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ username, password })
         });
-
+        
         const data = await response.json();
 
         if (response.ok) {
+            // Save session
             currentUserId = data.userId;
-            localStorage.setItem('dentist_user_id', data.userId);
+            localStorage.setItem('dentist_user_id', currentUserId);
             
-            // Show the app dashboard
+            // Unmask the dashboard
             document.getElementById('login-gate').classList.add('hidden');
             document.getElementById('main-dashboard').classList.remove('hidden');
             
-            // Fetch this specific dentist's patients
-            fetchPatients();
+            // Clear passwords from memory
+            document.getElementById('cust-password').value = '';
+            
+            // Load their specific patients
+            fetchPatients(); 
         } else {
-            alert(data.error || "Authentication rejected.");
+            alert(data.error);
         }
     } catch (err) {
-        alert("Unable to reach authentication server.");
+        alert("Cannot connect to server.");
     }
 }
 
-// Security Eviction (Forces logout if account gets suspended mid-session)
-function forceLogout() {
+function handleLogout() {
     localStorage.removeItem('dentist_user_id');
     currentUserId = null;
     document.getElementById('main-dashboard').classList.add('hidden');
     document.getElementById('login-gate').classList.remove('hidden');
 }
-let allPatients = [];
 
-// Dynamic Navigation Tab Engine
-function switchTab(tabId) {
-    const logsBtn = document.getElementById('btn-logs');
-    const aptBtn = document.getElementById('btn-appointments');
-    const logsTab = document.getElementById('tab-logs');
-    const aptTab = document.getElementById('tab-appointments');
 
-    if (tabId === 'logs') {
-        logsTab.classList.remove('hidden');
-        aptTab.classList.add('hidden');
-        logsBtn.classList.add('active-tab');
-        aptBtn.classList.remove('active-tab', 'bg-teal-50');
-        aptBtn.classList.add('text-slate-600');
-    } else {
-        aptTab.classList.remove('hidden');
-        logsTab.classList.add('hidden');
-        aptBtn.classList.add('active-tab');
-        logsBtn.classList.remove('active-tab', 'bg-teal-50');
-        logsBtn.classList.add('text-slate-600');
-    }
-}
+// ==========================================
+// 2. CLINICAL DATA MANAGEMENT (CRUD)
+// ==========================================
 
-// Live Message Template Synthesizer for Appointments
-const aptName = document.getElementById('apt-name');
-const aptTime = document.getElementById('apt-time');
-const msgPreview = document.getElementById('msg-preview');
-
-function updateLivePreview() {
-    if (aptName.value || aptTime.value) {
-        const dateObj = aptTime.value ? new Date(aptTime.value) : null;
-        const formattedDate = dateObj ? dateObj.toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' }) : '[Date & Time]';
-        
-        msgPreview.innerText = `Hello ${aptName.value || '[Patient Name]'},\n\nThis is an automated appointment confirmation from Your Dentist clinic.\n\n📅 Date/Time: ${formattedDate}\n\nWe look forward to seeing you. Please let us know 24 hours in advance if you need to reschedule. Thank you!`;
-    }
-}
-aptName.addEventListener('input', updateLivePreview);
-aptTime.addEventListener('input', updateLivePreview);
-
-// Fetching Patient Records from Serverless API Edge Endpoint (Cache-Busted)
 async function fetchPatients() {
     try {
-        // We append a timestamp variable (?t=...) so the browser never caches the old empty table
         const response = await fetch('/api/patients?t=' + new Date().getTime(), {
-            headers: {
-                'Cache-Control': 'no-cache',
-                'Pragma': 'no-cache'
+            headers: { 
+                'X-User-Id': currentUserId,
+                'Cache-Control': 'no-cache'
             }
         });
         
-        if (response.ok) {
-            allPatients = await response.json();
-            renderTable(allPatients);
-            updateDashboardMetrics(allPatients);
-        } else {
-            console.error("Failed to load patients. Server responded with:", response.status);
+        // Security trigger: Kick them out if admin suspended them
+        if (response.status === 403) return handleLogout();
+
+        const patients = await response.json();
+        const tbody = document.getElementById('patients-table-body');
+        
+        if (patients.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="4" class="text-center py-8 text-slate-400">No patients logged yet.</td></tr>`;
+            return;
         }
-    } catch (error) {
-        console.error("Database communication failure:", error);
-    }
-}
 
-// Dynamic Table Renderer (Updated with Delete Button)
-function renderTable(data) {
-    const tbody = document.getElementById('patient-table-body');
-    if (!data.length) {
-        tbody.innerHTML = `<tr><td colspan="5" class="text-center py-8 text-slate-400 font-normal">No corresponding records found inside database.</td></tr>`;
-        return;
-    }
+        tbody.innerHTML = patients.map(p => `
+            <tr class="hover:bg-slate-50 transition">
+                <td class="py-4">
+                    <div class="font-bold text-slate-800">${p.name}</div>
+                    <div class="text-xs text-slate-500">${p.phone}</div>
+                </td>
+                <td class="py-4 text-slate-600">${p.treatment}</td>
+                <td class="py-4 font-semibold text-slate-800">$${p.price}</td>
+                <td class="py-4 text-right">
+                    <button onclick="deletePatient(${p.id})" class="text-red-500 hover:text-red-700 bg-red-50 hover:bg-red-100 px-3 py-1 rounded text-xs font-bold transition">
+                        Delete
+                    </button>
+                </td>
+            </tr>
+        `).join('');
 
-    tbody.innerHTML = data.map(patient => `
-        <tr class="hover:bg-slate-50/70 transition duration-150">
-            <td class="px-6 py-4">
-                <div class="font-bold text-slate-900">${patient.name}</div>
-                <div class="text-xs text-slate-400">${patient.age} years old</div>
-            </td>
-            <td class="px-6 py-4 text-slate-600 font-normal">${patient.phone}</td>
-            <td class="px-6 py-4 text-slate-500 max-w-xs truncate">${patient.treatment}</td>
-            <td class="px-6 py-4 text-right font-bold text-slate-900">$${Number(patient.price).toFixed(2)}</td>
-            <td class="px-6 py-4 text-center">
-                <button onclick="deletePatient(${patient.id})" class="text-red-400 hover:text-red-600 transition-colors p-2 rounded-lg hover:bg-red-50" title="Delete Record">
-                    <i class="fa-solid fa-trash"></i>
-                </button>
-            </td>
-        </tr>
-    `).join('');
-}
-// Secure Deletion Engine
-async function deletePatient(id) {
-    // 1. Trigger the native browser warning dialog
-    const isConfirmed = confirm("⚠️ Are you sure you want to permanently delete this patient's record? This action cannot be undone.");
-    
-    // 2. If they click "Cancel", stop the function immediately
-    if (!isConfirmed) return; 
-
-    // 3. If confirmed, route the delete command to the Edge API
-    try {
-        const response = await fetch(`/api/patients?id=${id}`, {
-            method: 'DELETE'
-        });
-
-        if (response.ok) {
-            // Silently refresh the dashboard table to reflect the deleted row
-            fetchPatients(); 
-        } else {
-            const data = await response.json().catch(() => null);
-            alert(`Failed to delete record. Error: ${data ? data.error : 'Unknown'}`);
-        }
     } catch (err) {
-        alert("Critical Network Error: Could not reach the API to delete the record.");
-        console.error(err);
+        console.error("Failed to load patients", err);
     }
 }
-// Analytics Calculations
-function updateDashboardMetrics(data) {
-    document.getElementById('stat-count').innerText = data.length;
-    const grossRevenue = data.reduce((sum, item) => sum + Number(item.price), 0);
-    document.getElementById('stat-revenue').innerText = `$${grossRevenue.toFixed(2)}`;
-}
 
-// Real-Time Query Filtering (Instantly Searches Across Cached Array State)
-function filterPatients() {
-    const query = document.getElementById('search-input').value.toLowerCase();
-    const matches = allPatients.filter(p => p.name.toLowerCase().includes(query));
-    renderTable(matches);
-}
-
-// Form Post Handling with Visible Error Alerts
-async function savePatient(event) {
+async function addPatient(event) {
     event.preventDefault();
     
-    // Change the button text to show it's working
-    const submitBtn = event.target.querySelector('button[type="submit"]');
-    const originalText = submitBtn.innerText;
-    submitBtn.innerText = "Saving...";
-    submitBtn.disabled = true;
-
-    const record = {
-        name: document.getElementById('log-name').value,
-        age: parseInt(document.getElementById('log-age').value),
-        phone: document.getElementById('log-phone').value,
-        treatment: document.getElementById('log-treatment').value,
-        price: parseFloat(document.getElementById('log-price').value)
+    const patientData = {
+        name: document.getElementById('patient-name').value,
+        phone: document.getElementById('patient-phone').value,
+        treatment: document.getElementById('patient-treatment').value,
+        price: document.getElementById('patient-price').value
     };
 
     try {
         const response = await fetch('/api/patients', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(record)
+            headers: { 
+                'Content-Type': 'application/json',
+                'X-User-Id': currentUserId
+            },
+            body: JSON.stringify(patientData)
         });
 
-        // Parse the response from Cloudflare
-        const data = await response.json().catch(() => null);
+        if (response.status === 403) return handleLogout();
 
         if (response.ok) {
-            alert("Success! Patient saved to database.");
-            document.getElementById('patient-form').reset();
-            fetchPatients(); // Refresh the table
-        } else {
-            // THIS WILL TELL US WHAT IS BROKEN
-            alert(`Error ${response.status}: ${data ? data.error : 'Unknown API Error'}`);
+            // Clear the form
+            event.target.reset();
+            // Refresh the table
+            fetchPatients();
         }
     } catch (err) {
-        alert("Critical Network Error: Could not reach the API.");
-        console.error(err);
-    } finally {
-        // Reset the button
-        submitBtn.innerText = originalText;
-        submitBtn.disabled = false;
+        alert("Failed to save record.");
     }
 }
 
-// Universal Native WhatsApp Routing Gateway Engine
-function sendAppointment(event) {
-    event.preventDefault();
-    
-    // Clean phone variable formatting strip parameters to digits only
-    const cleanPhone = document.getElementById('apt-phone').value.replace(/\D/g, '');
-    const dateObj = new Date(aptTime.value);
-    const formattedDate = dateObj.toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' });
+async function deletePatient(id) {
+    if (!confirm("Are you sure you want to delete this patient record?")) return;
 
-    const conceptualText = `Hello ${aptName.value},\n\nThis is an automated appointment confirmation from Your Dentist clinic.\n\n📅 Date/Time: ${formattedDate}\n\nWe look forward to seeing you. Please let us know 24 hours in advance if you need to reschedule. Thank you!`;
-    
-    // Dispatches target endpoint inside a secure secondary desktop thread
-    window.open(`https://wa.me/${cleanPhone}?text=${encodeURIComponent(conceptualText)}`, '_blank');
+    try {
+        const response = await fetch(`/api/patients?id=${id}`, {
+            method: 'DELETE',
+            headers: { 'X-User-Id': currentUserId }
+        });
+
+        if (response.status === 403) return handleLogout();
+
+        if (response.ok) {
+            fetchPatients();
+        }
+    } catch (err) {
+        alert("Failed to delete record.");
+    }
 }
-
-// CSV Structural Exporter Engine for Clinic Backups
-function exportCSV() {
-    if (!allPatients.length) return;
-    
-    const headers = ['ID', 'Patient Name', 'Age', 'Phone Number', 'Treatment Details', 'Price Billed ($)', 'Timestamp Registered'];
-    const rows = allPatients.map(p => [p.id, `"${p.name}"`, p.age, p.phone, `"${p.treatment}"`, p.price, p.created_at]);
-    
-    const csvContent = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    
-    const anchorLink = document.createElement('a');
-    anchorLink.setAttribute('href', url);
-    anchorLink.setAttribute('download', `Your_Dentist_Records_Backup_${new Date().toISOString().split('T')[0]}.csv`);
-    anchorLink.click();
-}
-
-// Run bootstrapping runtime execution checks on frame instantiation
-window.onload = fetchPatients;
