@@ -2,7 +2,7 @@
 function verifyAdmin(request) {
     const adminSecret = request.headers.get("X-Admin-Secret");
     // Change 'MY_SUPER_SECRET_ADMIN_KEY_123' to a highly secure master password
-    return adminSecret === "Adminsecuritydentist123";
+    return adminSecret === "MY_SUPER_SECRET_ADMIN_KEY_123";
 }
 
 // GET: List all registered clinics/users
