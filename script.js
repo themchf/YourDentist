@@ -1,3 +1,23 @@
+async function deleteClient(id) {
+    // Force a strong confirmation to prevent accidental misclicks
+    if (!confirm("CRITICAL WARNING: Are you sure you want to permanently delete this clinic? This action cannot be undone.")) return;
+
+    try {
+        const res = await fetch(`/api/admin?id=${id}`, {
+            method: 'DELETE',
+            headers: getHeaders()
+        });
+
+        if (res.ok) {
+            loadClients(); // Instantly refresh the table
+        } else {
+            const data = await res.json();
+            alert(`Failed to delete account: ${data.error || 'Unknown error'}`);
+        }
+    } catch (err) {
+        alert("Cannot connect to server.");
+    }
+}
 // ==========================================
 // 1. SESSION MANAGEMENT & AUTHENTICATION
 // ==========================================
