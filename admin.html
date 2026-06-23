@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SaaS Master Admin Control Panel</title>
+    <title>MKF Master Control Panel</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
@@ -105,13 +105,16 @@
                 </span>
             </td>
             <td class="py-4 text-right space-x-2">
-                <button onclick="toggleStatus(${c.id}, '${c.status}')" class="px-3 py-1.5 rounded-lg text-xs font-semibold transition border ${c.status === 'active' ? 'border-amber-500/30 text-amber-400 hover:bg-amber-500/10' : 'border-teal-500/30 text-teal-400 hover:bg-teal-500/10'}">
-                    ${c.status === 'active' ? 'Suspend' : 'Activate'}
-                </button>
-                <button onclick="changePassword(${c.id})" class="px-3 py-1.5 rounded-lg text-xs font-semibold border border-slate-700 text-slate-300 hover:bg-slate-700/50 transition">
-                    <i class="fa-solid fa-key"></i> Pass
-                </button>
-            </td>
+    <button onclick="toggleStatus(${c.id}, '${c.status}')" class="px-3 py-1.5 rounded-lg text-xs font-semibold transition border ${c.status === 'active' ? 'border-amber-500/30 text-amber-400 hover:bg-amber-500/10' : 'border-teal-500/30 text-teal-400 hover:bg-teal-500/10'}">
+        ${c.status === 'active' ? 'Suspend' : 'Activate'}
+    </button>
+    <button onclick="changePassword(${c.id})" class="px-3 py-1.5 rounded-lg text-xs font-semibold border border-slate-700 text-slate-300 hover:bg-slate-700/50 transition">
+        <i class="fa-solid fa-key"></i> Pass
+    </button>
+    <button onclick="deleteClient(${c.id})" class="px-3 py-1.5 rounded-lg text-xs font-semibold border border-red-500/30 text-red-400 hover:bg-red-500/10 transition" title="Delete Clinic">
+        <i class="fa-solid fa-trash"></i>
+    </button>
+</td>
         </tr>
     `).join('');
 }
