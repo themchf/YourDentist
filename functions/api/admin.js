@@ -61,15 +61,17 @@ export async function onRequestPut(context) {
 }
 // DELETE: Permanently remove a clinic/tenant
 export async function onRequestDelete(context) {
-    try {
-        const { env, request } = context;
-        
-        // Security check: Ensure the request has the correct admin secret
-        const secret = request.headers.get("X-Admin-Secret");
-        if (secret !== env.ADMIN_SECRET) {
-            return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 403 });
-        }
-
+    const { env, request } = context;
+    
+    // This MUST match the header name sent by your frontend
+    const secret = request.headers.get("X-Admin-Secret");
+    
+    if (secret !== env.ADMIN_SECRET) {
+        return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 403 });
+    }
+    
+    // ... rest of your delete logic
+}
         // Grab the ID from the URL parameters (e.g., /api/admin?id=5)
         const url = new URL(request.url);
         const clientId = url.searchParams.get("id");
