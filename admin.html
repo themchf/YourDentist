@@ -13,7 +13,7 @@
         <div class="flex flex-col md:flex-row md:items-center md:justify-between border-b border-slate-800 pb-6 mb-8">
             <div>
                 <h1 class="text-3xl font-extrabold text-white tracking-tight flex items-center gap-3">
-                    <i class="fa-solid fa-screwdriver-wrench text-teal-500"></i> MKF Admin Panel
+                    <i class="fa-solid fa-screwdriver-wrench text-teal-500"></i> SaaS Admin Panel
                 </h1>
                 <p class="text-slate-400 mt-1">Manage tenants, subscription states, and access keys.</p>
             </div>
@@ -80,44 +80,43 @@
             };
         }
 
-       async function loadClients() {
-    // We append a timestamp (?t=...) to force Cloudflare to ask the server for fresh data
-    const res = await fetch('/api/admin?t=' + new Date().getTime(), { 
-        headers: getHeaders(),
-        cache: 'no-store' // Strictly forbid the browser from using cached rejections
-    });
-    
-    if (!res.ok) {
-        document.getElementById('client-table-body').innerHTML = `<tr><td colspan="3" class="py-8 text-center text-red-400 font-bold">Invalid Admin Secret Key. Access Denied.</td></tr>`;
-        return;
-    }
-    const clients = await res.json();
-    
-    document.getElementById('client-table-body').innerHTML = clients.map(c => `
-        <tr class="hover:bg-slate-800/30 transition">
-            <td class="py-4">
-                <div class="font-bold text-white">${c.clinic_name}</div>
-                <div class="text-xs text-slate-400">User: ${c.username} (ID: ${c.id})</div>
-            </td>
-            <td class="py-4">
-                <span class="px-2.5 py-1 rounded-full text-xs font-bold ${c.status === 'active' ? 'bg-teal-500/10 text-teal-400 border border-teal-500/20' : 'bg-red-500/10 text-red-400 border border-red-500/20'}">
-                    ${c.status.toUpperCase()}
-                </span>
-            </td>
-            <td class="py-4 text-right space-x-2">
-    <button onclick="toggleStatus(${c.id}, '${c.status}')" class="px-3 py-1.5 rounded-lg text-xs font-semibold transition border ${c.status === 'active' ? 'border-amber-500/30 text-amber-400 hover:bg-amber-500/10' : 'border-teal-500/30 text-teal-400 hover:bg-teal-500/10'}">
-        ${c.status === 'active' ? 'Suspend' : 'Activate'}
-    </button>
-    <button onclick="changePassword(${c.id})" class="px-3 py-1.5 rounded-lg text-xs font-semibold border border-slate-700 text-slate-300 hover:bg-slate-700/50 transition">
-        <i class="fa-solid fa-key"></i> Pass
-    </button>
-    <button onclick="deleteClient(${c.id})" class="px-3 py-1.5 rounded-lg text-xs font-semibold border border-red-500/30 text-red-400 hover:bg-red-500/10 transition" title="Delete Clinic">
-        <i class="fa-solid fa-trash"></i>
-    </button>
-</td>
-        </tr>
-    `).join('');
-}
+        async function loadClients() {
+            const res = await fetch('/api/admin?t=' + new Date().getTime(), { 
+                headers: getHeaders(),
+                cache: 'no-store' 
+            });
+            
+            if (!res.ok) {
+                document.getElementById('client-table-body').innerHTML = `<tr><td colspan="3" class="py-8 text-center text-red-400 font-bold">Invalid Admin Secret Key. Access Denied.</td></tr>`;
+                return;
+            }
+            const clients = await res.json();
+            
+            document.getElementById('client-table-body').innerHTML = clients.map(c => `
+                <tr class="hover:bg-slate-800/30 transition">
+                    <td class="py-4">
+                        <div class="font-bold text-white">${c.clinic_name}</div>
+                        <div class="text-xs text-slate-400">User: ${c.username} (ID: ${c.id})</div>
+                    </td>
+                    <td class="py-4">
+                        <span class="px-2.5 py-1 rounded-full text-xs font-bold ${c.status === 'active' ? 'bg-teal-500/10 text-teal-400 border border-teal-500/20' : 'bg-red-500/10 text-red-400 border border-red-500/20'}">
+                            ${c.status.toUpperCase()}
+                        </span>
+                    </td>
+                    <td class="py-4 text-right space-x-2">
+                        <button onclick="toggleStatus(${c.id}, '${c.status}')" class="px-3 py-1.5 rounded-lg text-xs font-semibold transition border ${c.status === 'active' ? 'border-amber-500/30 text-amber-400 hover:bg-amber-500/10' : 'border-teal-500/30 text-teal-400 hover:bg-teal-500/10'}">
+                            ${c.status === 'active' ? 'Suspend' : 'Activate'}
+                        </button>
+                        <button onclick="changePassword(${c.id})" class="px-3 py-1.5 rounded-lg text-xs font-semibold border border-slate-700 text-slate-300 hover:bg-slate-700/50 transition">
+                            <i class="fa-solid fa-key"></i> Pass
+                        </button>
+                        <button onclick="deleteClient(${c.id})" class="px-3 py-1.5 rounded-lg text-xs font-semibold border border-red-500/30 text-red-400 hover:bg-red-500/10 transition" title="Delete Clinic">
+                            <i class="fa-solid fa-trash"></i>
+                        </button>
+                    </td>
+                </tr>
+            `).join('');
+        }
 
         async function addClient(e) {
             e.preventDefault();
@@ -166,6 +165,27 @@
             });
 
             if (res.ok) alert('Password updated successfully! They will have to sign in again.');
+        }
+
+        // NEW GLOBAL FUNCTION PROPERLY PLACED
+        async function deleteClient(id) {
+            if (!confirm("CRITICAL WARNING: Are you sure you want to permanently delete this clinic? This action cannot be undone.")) return;
+
+            try {
+                const res = await fetch(`/api/admin?id=${id}`, {
+                    method: 'DELETE',
+                    headers: getHeaders()
+                });
+
+                if (res.ok) {
+                    loadClients(); 
+                } else {
+                    const data = await res.json();
+                    alert(`Failed to delete account: ${data.error || 'Unknown error'}`);
+                }
+            } catch (err) {
+                alert("Cannot connect to server.");
+            }
         }
     </script>
 </body>
