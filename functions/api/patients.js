@@ -7,7 +7,8 @@ async function verifyTenant(env, userId) {
 }
 
 // GET: Fetch patients belonging ONLY to this specific user ID
-export async function onRequestGet(context) {
+// POST: Save a new patient tied explicitly to this user ID
+export async function onRequestPost(context) {
     try {
         const { env, request } = context;
         const userId = request.headers.get("X-User-Id");
@@ -16,18 +17,19 @@ export async function onRequestGet(context) {
             return new Response(JSON.stringify({ error: "Unauthorized or account suspended." }), { status: 403 });
         }
 
-        const { results } = await env.DB.prepare(
-            "SELECT * FROM patients WHERE user_id = ? ORDER BY id DESC"
-        ).bind(userId).all();
-        
-        return new Response(JSON.stringify(results), {
-            headers: { "Content-Type": "application/json" }
-        });
+        // Added 'age' to match your new frontend UI
+        const { name, age, phone, treatment, price } = await request.json();
+
+        // Added 'age' and 'user_id' to the SQL insertion
+        await env.DB.prepare(
+            "INSERT INTO patients (name, age, phone, treatment, price, user_id) VALUES (?, ?, ?, ?, ?, ?)"
+        ).bind(name, age, phone, treatment, price, userId).run();
+
+        return new Response(JSON.stringify({ success: true }), { status: 201 });
     } catch (err) {
         return new Response(JSON.stringify({ error: err.message }), { status: 500 });
     }
 }
-
 // POST: Save a new patient tied explicitly to this user ID
 export async function onRequestPost(context) {
     try {
