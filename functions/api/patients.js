@@ -34,7 +34,7 @@ export async function onRequestGet(context) {
     }
 }
 
-// POST: Save a new patient (Handles the 'age' NOT NULL database constraint safely)
+// POST: Save a new patient (Fixed: Passing 0 instead of null to satisfy NOT NULL constraint)
 export async function onRequestPost(context) {
     try {
         const { env, request } = context;
@@ -46,11 +46,11 @@ export async function onRequestPost(context) {
 
         const { name, phone, treatment, price } = await request.json();
 
-        // Include 'age' in the INSERT statement and pass null explicitly 
-        // to satisfy your SQLite NOT NULL constraint while keeping your frontend clean.
+        // We pass 0 for age here. This satisfies the SQLite NOT NULL constraint 
+        // without forcing you to modify your frontend UI or rebuild table structures.
         await env.DB.prepare(
             "INSERT INTO patients (name, age, phone, treatment, price, user_id) VALUES (?, ?, ?, ?, ?, ?)"
-        ).bind(name, null, phone, treatment, price, userId).run();
+        ).bind(name, 0, phone, treatment, price, userId).run();
 
         return new Response(JSON.stringify({ success: true }), { 
             status: 201,
