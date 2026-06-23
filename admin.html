@@ -74,11 +74,13 @@
 
     <script>
         function getHeaders() {
-            return {
-                'Content-Type': 'application/json',
-                'X-Admin-Secret': document.getElementById('admin-secret').value
-            };
-        }
+    const secret = document.getElementById('admin-secret').value;
+    console.log("Sending Secret:", secret); // Open Inspect -> Console to see if this is empty!
+    return {
+        'Content-Type': 'application/json',
+        'X-Admin-Secret': secret
+    };
+}
 
         async function loadClients() {
             const res = await fetch('/api/admin?t=' + new Date().getTime(), { 
