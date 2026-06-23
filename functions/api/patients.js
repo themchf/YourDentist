@@ -2,7 +2,6 @@
 async function verifyTenant(env, userId) {
     if (!userId) return false;
     try {
-        // Query your users table to see if this ID exists
         const user = await env.DB.prepare(
             "SELECT id FROM users WHERE id = ?"
         ).bind(userId).first();
@@ -35,7 +34,7 @@ export async function onRequestGet(context) {
     }
 }
 
-// POST: Save a new patient tied explicitly to this user ID
+// POST: Save a new patient (Fixed: Removed 'age' to match frontend)
 export async function onRequestPost(context) {
     try {
         const { env, request } = context;
@@ -45,11 +44,12 @@ export async function onRequestPost(context) {
             return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 403 });
         }
 
-        const { name, age, phone, treatment, price } = await request.json();
+        const { name, phone, treatment, price } = await request.json();
 
+        // Query matches the exactly 4 fields coming from script.js, plus the user_id
         await env.DB.prepare(
-            "INSERT INTO patients (name, age, phone, treatment, price, user_id) VALUES (?, ?, ?, ?, ?, ?)"
-        ).bind(name, age, phone, treatment, price, userId).run();
+            "INSERT INTO patients (name, phone, treatment, price, user_id) VALUES (?, ?, ?, ?, ?)"
+        ).bind(name, phone, treatment, price, userId).run();
 
         return new Response(JSON.stringify({ success: true }), { 
             status: 201,
