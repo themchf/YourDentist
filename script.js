@@ -152,3 +152,21 @@ async function deletePatient(id) {
         alert("Failed to delete record.");
     }
 }
+// ==========================================
+// 3. WHATSAPP INTEGRATION
+// ==========================================
+function sendWhatsApp(event) {
+    event.preventDefault();
+    
+    // Get the phone number and strip out any spaces or special characters
+    let phone = document.getElementById('wa-phone').value.replace(/[^0-9]/g, '');
+    
+    // Get the message and format it for a URL
+    let message = encodeURIComponent(document.getElementById('wa-message').value);
+    
+    // Open WhatsApp Web or the App
+    window.open(`https://wa.me/${phone}?text=${message}`, '_blank');
+    
+    // Optional: clear the message box after sending
+    document.getElementById('wa-message').value = '';
+}
