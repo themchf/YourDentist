@@ -34,7 +34,7 @@ export async function onRequestGet(context) {
     }
 }
 
-// POST: Save a new patient (Fixed: Passing 0 instead of null to satisfy NOT NULL constraint)
+// POST: Save a new patient (Now captures the REAL age from your frontend)
 export async function onRequestPost(context) {
     try {
         const { env, request } = context;
@@ -44,13 +44,17 @@ export async function onRequestPost(context) {
             return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 403 });
         }
 
-        const { name, phone, treatment, price } = await request.json();
+        // We are now extracting 'age' from the frontend JSON payload
+        const { name, age, phone, treatment, price } = await request.json();
 
-        // We pass 0 for age here. This satisfies the SQLite NOT NULL constraint 
-        // without forcing you to modify your frontend UI or rebuild table structures.
+        // Safety check: If age is provided, convert it to a number. 
+        // If they leave the age box empty, default to 0 so the database doesn't crash.
+        const safeAge = age ? Number(age) : 0;
+
+        // Bind the actual 'safeAge' instead of a hardcoded 0
         await env.DB.prepare(
             "INSERT INTO patients (name, age, phone, treatment, price, user_id) VALUES (?, ?, ?, ?, ?, ?)"
-        ).bind(name, 0, phone, treatment, price, userId).run();
+        ).bind(name, safeAge, phone, treatment, price, userId).run();
 
         return new Response(JSON.stringify({ success: true }), { 
             status: 201,
