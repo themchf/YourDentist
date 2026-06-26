@@ -1,23 +1,24 @@
-// Helper logic to verify if a user session exists and is valid
+// Helper logic to verify if a user session exists and fetch their account status
 async function verifyTenant(env, userId) {
-    if (!userId) return false;
+    if (!userId) return null;
     try {
         const user = await env.DB.prepare(
-            "SELECT id FROM users WHERE id = ?"
+            "SELECT id, status FROM users WHERE id = ?"
         ).bind(userId).first();
-        return !!user;
+        return user; // Returns the user object { id, status } so we can check it
     } catch (e) {
-        return false;
+        return null;
     }
 }
 
-// GET: Fetch records belonging ONLY to the logged-in doctor
+// GET: Fetch records (Allowed for both Active AND Suspended users so they can read data)
 export async function onRequestGet(context) {
     try {
         const { env, request } = context;
         const userId = request.headers.get("X-User-Id");
 
-        if (!(await verifyTenant(env, userId))) {
+        const user = await verifyTenant(env, userId);
+        if (!user) {
             return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 403 });
         }
 
@@ -34,24 +35,27 @@ export async function onRequestGet(context) {
     }
 }
 
-// POST: Save a new patient (Now captures the REAL age from your frontend)
+// POST: Save a new patient (BLOCKED if the account is suspended)
 export async function onRequestPost(context) {
     try {
         const { env, request } = context;
         const userId = request.headers.get("X-User-Id");
 
-        if (!(await verifyTenant(env, userId))) {
+        const user = await verifyTenant(env, userId);
+        
+        // Check 1: Does the user exist?
+        if (!user) {
             return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 403 });
         }
+        
+        // Check 2: Is the user suspended? (Read-Only Mode Enforcement)
+        if (user.status === 'suspended') {
+            return new Response(JSON.stringify({ error: "Account suspended. Read-only mode active." }), { status: 403 });
+        }
 
-        // We are now extracting 'age' from the frontend JSON payload
         const { name, age, phone, treatment, price } = await request.json();
-
-        // Safety check: If age is provided, convert it to a number. 
-        // If they leave the age box empty, default to 0 so the database doesn't crash.
         const safeAge = age ? Number(age) : 0;
 
-        // Bind the actual 'safeAge' instead of a hardcoded 0
         await env.DB.prepare(
             "INSERT INTO patients (name, age, phone, treatment, price, user_id) VALUES (?, ?, ?, ?, ?, ?)"
         ).bind(name, safeAge, phone, treatment, price, userId).run();
@@ -65,18 +69,26 @@ export async function onRequestPost(context) {
     }
 }
 
-// DELETE: Remove a record safely
+// DELETE: Remove a record safely (BLOCKED if the account is suspended)
 export async function onRequestDelete(context) {
     try {
         const { env, request } = context;
         const userId = request.headers.get("X-User-Id");
         
-        const url = new URL(request.url);
-        const patientId = url.searchParams.get("id");
-
-        if (!(await verifyTenant(env, userId))) {
+        const user = await verifyTenant(env, userId);
+        
+        // Check 1: Does the user exist?
+        if (!user) {
             return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 403 });
         }
+        
+        // Check 2: Is the user suspended? (Read-Only Mode Enforcement)
+        if (user.status === 'suspended') {
+            return new Response(JSON.stringify({ error: "Account suspended. Read-only mode active." }), { status: 403 });
+        }
+
+        const url = new URL(request.url);
+        const patientId = url.searchParams.get("id");
 
         await env.DB.prepare(
             "DELETE FROM patients WHERE id = ? AND user_id = ?"
